@@ -53,7 +53,7 @@ namespace InngameSDK.Tests
             bool phone = (bool)c[3], dark = (bool)c[4], welcome = (bool)c[5];
 
             var theme = dark ? InngameTheme.CreateDark() : InngameTheme.CreateLight();
-            theme.Title = "Wipe Support";
+            theme.Title = "Acme Support";
             Inngame.Configure("app_screenshot", new InngameOptions { Theme = theme, Language = "en", TokenStore = new MemoryTokenStore(), UseWebSocket = false, ScreenshotHotkey = KeyCode.None, LogLevel = InngameLogLevel.None });
             var rt = Inngame.Runtime;
             rt.SuppressNetwork = true;

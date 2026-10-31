@@ -42,6 +42,30 @@ namespace InngameSDK
         /// <summary>TextMeshPro font asset (TMP_FontAsset). Used when TextMeshPro is installed; add fallback fonts for CJK.</summary>
         public Object TmpFont;
 
+        [Header("Logo")]
+        /// <summary>Shown in the chat header instead of the initial. Null: the logo uploaded in the dashboard (Appearance), if any.</summary>
+        public Sprite Logo;
+        /// <summary>Logo uploaded in the dashboard (set from the server's <c>appearance.logoUrl</c>).</summary>
+        [HideInInspector] public string LogoUrl = "";
+
+        [Header("Skin (optional 9-sliced sprites from your game's UI)")]
+        /// <summary>Panel frame (the whole chat window).</summary>
+        public Sprite PanelSprite;
+        public Sprite HeaderSprite;
+        /// <summary>Bar at the bottom around the text field. Null: <see cref="HeaderSprite"/>.</summary>
+        public Sprite ComposerSprite;
+        public Sprite IncomingBubbleSprite;
+        public Sprite OutgoingBubbleSprite;
+        public Sprite InputSprite;
+        /// <summary>Send button and card buttons.</summary>
+        public Sprite ButtonSprite;
+        /// <summary>Multiplies the colors above with the sprites. Off: sprites keep their own colors (only text colors apply).</summary>
+        public bool TintSprites;
+        /// <summary>Image.pixelsPerUnitMultiplier for the sprites: higher = thinner borders.</summary>
+        [Range(0.25f, 8f)] public float SpriteScale = 1f;
+        /// <summary>Extra inner padding (px) for bubbles and bars, for ornate frames.</summary>
+        [Range(0, 40)] public int SkinPadding;
+
         [Header("Texts (empty = localized default)")]
         public string Title = "";
         public string WelcomeTitle = "";
@@ -95,6 +119,7 @@ namespace InngameSDK
             t.WelcomeTitle = NonEmpty(appearance.GetString("welcomeTitle"), t.WelcomeTitle);
             t.WelcomeMessage = NonEmpty(appearance.GetString("welcomeMessage"), t.WelcomeMessage);
             t.Placeholder = NonEmpty(appearance.GetString("placeholder"), t.Placeholder);
+            t.LogoUrl = appearance.GetString("logoUrl") ?? "";
 
             t.ApplyColors(appearance);
             if (appearance is Dictionary<string, object> d) t.ApplyColors(d.GetDict(t.IsDark ? "dark" : "light"));

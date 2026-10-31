@@ -1,8 +1,11 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.0] - 2026-11-01
 
 ### Added
+- Build number (iOS CFBundleVersion, Android versionCode) and the real time zone ("Europe/Paris") plus UTC offset in the message context; Unity only exposes the marketing version.
+- Game skins: `InngameTheme` takes 9-sliced sprites for the panel, header, composer, both bubbles, the text field and buttons (`PanelSprite`, `HeaderSprite`, `ComposerSprite`, `IncomingBubbleSprite`, `OutgoingBubbleSprite`, `InputSprite`, `ButtonSprite`, `TintSprites`, `SpriteScale`, `SkinPadding`); bubble padding follows the sprite borders.
+- Logo in the chat header: `InngameTheme.Logo`, or the logo uploaded in the dashboard (`appearance.logoUrl`, downloaded once and cached).
 - Team announcement at the top of the chat (outage, maintenance, known bug), translated by the server, set from the inbox.
 - Availability line under the chat title: usual reply time, or "Away · back Mon 09:00" outside office hours (25 languages, player's local time); `InngameRemoteConfig.Availability`.
 - Satisfaction cards (`rating`): the question in the player's language (25 languages) and five buttons from 1 to 5, gamepad-navigable; `InngameCard.Rating`.

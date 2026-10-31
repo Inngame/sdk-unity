@@ -72,7 +72,26 @@ All async methods return `Task<bool>`: `await` them or ignore the result. Everyt
 
 Create a theme with **Assets › Create › Inngame › Theme** (or `InngameTheme.CreateDark()` / `CreateLight()` in code) and set colors, corner radius, font size, legacy `Font` or TextMeshPro font asset, title, welcome texts and placeholder. Pass it in `InngameOptions.Theme` or the Settings window.
 
-The dashboard's **Appearance** settings (title, welcome texts, placeholder, accent/background/text for light and dark) override the local theme at runtime, without an update. The last values are cached for the next launch.
+The dashboard's **Appearance** settings (title, welcome texts, placeholder, logo, accent/background/text/header/bubble colors for light and dark, presets) override the local theme at runtime, without an update. The last values are cached for the next launch.
+
+**Make it look like your game.** Give the theme your own UI sprites (9-sliced: set the sprite border in the Sprite Editor) and the chat is drawn with them instead of flat rounded rectangles:
+
+```csharp
+var t = InngameTheme.CreateDark();
+t.LegacyFont = myFont;                    // or TmpFont
+t.Logo = myLogoSprite;                    // header; null = the logo uploaded in the dashboard
+t.PanelSprite = framePanel;               // the chat window
+t.HeaderSprite = barSprite;               // ComposerSprite defaults to it
+t.IncomingBubbleSprite = stoneButton;     // team / AI
+t.OutgoingBubbleSprite = redButton;       // player
+t.InputSprite = pillSprite;
+t.ButtonSprite = roundButton;             // send button and card buttons
+t.SpriteScale = 2.5f;                     // thinner borders on big source art
+t.TintSprites = false;                    // keep the sprites' own colors (only text colors apply)
+Inngame.Configure("app_...", new InngameOptions { Theme = t });
+```
+
+Bubble text stays inside the sprite borders (ornaments, spikes); `SkinPadding` adds room for heavier frames.
 
 Layout: full screen on phones (safe area / notch aware), a centered panel (max 720 units wide) on desktop, tablets, consoles and Steam Deck. The UI scales with the screen. UI strings are localized in 25 languages (en, fr, de, es, it, pt, ru, ja, ko, zh, tr, pl, nl, sv, da, nb, fi, cs, uk, ar, hi, th, vi, id, ro); team/AI messages are shown translated into the player's language with a **Translated · Show original** toggle.
 

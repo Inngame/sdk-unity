@@ -22,6 +22,8 @@ namespace InngameSDK
             Safe(() =>
             {
                 d["appVersion"] = Application.version;
+                var build = NativeInfo.Build;
+                if (!string.IsNullOrEmpty(build)) d["build"] = build;
                 d["bundleId"] = Application.identifier;
                 d["unityVersion"] = Application.unityVersion;
                 d["platform"] = Application.platform.ToString();
@@ -97,7 +99,9 @@ namespace InngameSDK
             {
                 d["systemLanguage"] = Application.systemLanguage.ToString();
                 d["language"] = rt != null ? rt.PlayerLanguage : Inngame.DetectLanguage();
-                d["timeZone"] = TimeZoneInfo.Local.Id;
+                var zone = NativeInfo.TimeZone;
+                if (!string.IsNullOrEmpty(zone)) d["timeZone"] = zone;
+                d["utcOffsetMin"] = NativeInfo.UtcOffsetMinutes;
                 d["uptimeSec"] = Math.Round(Time.realtimeSinceStartup);
                 d["timeScale"] = rt != null && rt.SavedTimeScale.HasValue ? rt.SavedTimeScale.Value : Time.timeScale;
             });

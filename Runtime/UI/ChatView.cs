@@ -187,8 +187,7 @@ namespace InngameSDK
             safe = NewRect(root, "SafeArea");
             panel = NewRect(safe, "Panel");
             panelBg = panel.gameObject.AddComponent<Image>();
-            SetRounded(panelBg, theme.CornerRadius + 4);
-            panelBg.color = theme.Background;
+            Skin(panelBg, theme.PanelSprite, theme.Background, theme.CornerRadius + 4);
             panel.gameObject.AddComponent<RectMask2D>();
             var v = panel.gameObject.AddComponent<VerticalLayoutGroup>();
             v.childControlWidth = true; v.childControlHeight = true; v.childForceExpandWidth = true; v.childForceExpandHeight = false;
@@ -209,10 +208,11 @@ namespace InngameSDK
         {
             var header = NewRect(panel, "Header");
             var bg = header.gameObject.AddComponent<Image>();
-            bg.color = theme.Header;
-            Le(header.gameObject, -1, 64);
+            Skin(bg, theme.HeaderSprite, theme.Header, 0);
+            int sp = theme.SkinPadding;
+            Le(header.gameObject, -1, 64 + sp * 2);
             var h = header.gameObject.AddComponent<HorizontalLayoutGroup>();
-            h.padding = new RectOffset(18, 10, 10, 10);
+            h.padding = new RectOffset(18 + sp, 10 + sp, 10 + sp, 10 + sp);
             h.spacing = 12;
             h.childAlignment = TextAnchor.MiddleLeft;
             h.childControlWidth = true; h.childControlHeight = true; h.childForceExpandWidth = false; h.childForceExpandHeight = false;
@@ -224,6 +224,9 @@ namespace InngameSDK
             initial.Text = titleText.Length > 0 ? char.ToUpperInvariant(titleText[0]).ToString() : "?";
             initial.Bold = true;
             Stretch(initial.Rect);
+            // Le logo du jeu (dans le thème, ou envoyé depuis le dashboard) à la place de l'initiale.
+            if (theme.Logo != null) ShowLogo(avatar, initial, theme.Logo);
+            else if (!string.IsNullOrEmpty(theme.LogoUrl)) StartCoroutine(LoadLogo(theme.LogoUrl, avatar, initial));
 
             var col = NewRect(header, "TitleColumn");
             var cv = col.gameObject.AddComponent<VerticalLayoutGroup>();
@@ -409,9 +412,10 @@ namespace InngameSDK
         {
             var c = NewRect(panel, "Composer");
             var bg = c.gameObject.AddComponent<Image>();
-            bg.color = theme.Header;
+            Skin(bg, theme.ComposerSprite != null ? theme.ComposerSprite : theme.HeaderSprite, theme.Header, 0);
+            int sp = theme.SkinPadding;
             var h = c.gameObject.AddComponent<HorizontalLayoutGroup>();
-            h.padding = new RectOffset(10, 12, 10, 12); h.spacing = 8; h.childAlignment = TextAnchor.LowerLeft;
+            h.padding = new RectOffset(10 + sp, 12 + sp, 10 + sp, 12 + sp); h.spacing = 8; h.childAlignment = TextAnchor.LowerLeft;
             h.childControlWidth = true; h.childControlHeight = true; h.childForceExpandWidth = false; h.childForceExpandHeight = false;
             composerRow = c.gameObject;
 
@@ -425,8 +429,7 @@ namespace InngameSDK
 
             var pill = NewRect(c, "InputPill");
             var pimg = pill.gameObject.AddComponent<Image>();
-            SetRounded(pimg, 22);
-            pimg.color = theme.InputBackground;
+            Skin(pimg, theme.InputSprite, theme.InputBackground, 22);
             inputPillLayout = Le(pill.gameObject, -1, 44, 1);
             input = new UiInput(pill, style, FontSize, theme.Text, theme.MutedText,
                 !string.IsNullOrWhiteSpace(theme.Placeholder) ? theme.Placeholder : UiStrings.Get(UiStrings.K.Placeholder, lang));
@@ -440,6 +443,7 @@ namespace InngameSDK
             focus.Selected += OnInputSelected;
 
             sendBtn = IconButton(c, "Send", "send", theme.Accent, theme.AccentText, 44, 22, true);
+            if (theme.ButtonSprite != null) Skin(sendBtn.GetComponent<Image>(), theme.ButtonSprite, theme.Accent, 22);
             sendBtn.onClick.AddListener(() => Send(false));
         }
 
@@ -447,7 +451,7 @@ namespace InngameSDK
         {
             var r = NewRect(panel, "Blocked");
             var bg = r.gameObject.AddComponent<Image>();
-            bg.color = theme.Header;
+            Skin(bg, theme.ComposerSprite != null ? theme.ComposerSprite : theme.HeaderSprite, theme.Header, 0);
             Le(r.gameObject, -1, 64);
             var t = UiText.Create(r, "Text", style, FontSize - 2, theme.MutedText, TextAnchor.MiddleCenter);
             t.Text = UiStrings.Get(UiStrings.K.Blocked, lang);
@@ -531,7 +535,7 @@ namespace InngameSDK
 
             backdrop.enabled = !full;
             fullBg.gameObject.SetActive(full);
-            SetRounded(panelBg, full ? 0 : theme.CornerRadius + 4);
+            if (theme.PanelSprite == null) SetRounded(panelBg, full ? 0 : theme.CornerRadius + 4);
             if (size.x > 0 && size.y > 0)
             {
                 safe.anchorMin = new Vector2(sa.xMin / size.x, sa.yMin / size.y);
@@ -779,13 +783,21 @@ namespace InngameSDK
 
             var bubble = NewRect(row, "Bubble");
             var bimg = bubble.gameObject.AddComponent<Image>();
-            SetRounded(bimg, theme.CornerRadius);
             Color bubbleColor = mine ? theme.OutgoingBubble : theme.IncomingBubble;
             Color textColor = mine ? theme.OutgoingText : theme.IncomingText;
-            if (mine && m.State == InngameMessageState.Failed) bubbleColor = Color.Lerp(bubbleColor, theme.Danger, 0.55f);
-            bimg.color = bubbleColor;
+            var bubbleSprite = mine ? theme.OutgoingBubbleSprite : theme.IncomingBubbleSprite;
+            Skin(bimg, bubbleSprite, bubbleColor, theme.CornerRadius);
+            if (mine && m.State == InngameMessageState.Failed) bimg.color = Color.Lerp(bimg.color, theme.Danger, 0.55f);
+            // Bulle en image du jeu : le texte reste à l'intérieur de ses bords (ornements, pointes).
+            int px = 14, py = 9;
+            if (bubbleSprite != null)
+            {
+                float k = 0.75f / Mathf.Max(0.01f, theme.SpriteScale);
+                px = Mathf.Max(px, Mathf.RoundToInt(Mathf.Max(bubbleSprite.border.x, bubbleSprite.border.z) * k)) + theme.SkinPadding;
+                py = Mathf.Max(py, Mathf.RoundToInt(Mathf.Max(bubbleSprite.border.y, bubbleSprite.border.w) * k)) + theme.SkinPadding;
+            }
             var bv = bubble.gameObject.AddComponent<VerticalLayoutGroup>();
-            bv.padding = new RectOffset(14, 14, 9, 8); bv.spacing = 5;
+            bv.padding = new RectOffset(px, px, py, py - 1); bv.spacing = 5;
             bv.childControlWidth = true; bv.childControlHeight = true; bv.childForceExpandWidth = false; bv.childForceExpandHeight = false;
             bv.childAlignment = TextAnchor.UpperLeft;
             bubble.gameObject.AddComponent<ClampedWidth>().MaxWidth = maxW;
@@ -955,6 +967,7 @@ namespace InngameSDK
             SetRounded(img, Mathf.Max(8, theme.CornerRadius - 4));
             Color bg = mine ? new Color(1, 1, 1, 0.18f) : (claimed ? new Color(theme.Accent.r, theme.Accent.g, theme.Accent.b, 0.25f) : theme.Accent);
             img.color = bg;
+            if (theme.ButtonSprite != null && !mine) { Skin(img, theme.ButtonSprite, bg, 0); if (claimed) img.color *= new Color(1, 1, 1, 0.5f); }
             var h = b.gameObject.AddComponent<HorizontalLayoutGroup>();
             h.padding = new RectOffset(16, 16, 10, 10); h.childAlignment = TextAnchor.MiddleCenter;
             h.childControlWidth = true; h.childControlHeight = true; h.childForceExpandWidth = true;
@@ -1077,6 +1090,45 @@ namespace InngameSDK
         {
             var c = go.GetComponent<T>();
             return c != null ? c : go.AddComponent<T>();
+        }
+
+        /// <summary>Sprite du jeu (9-slice) s'il y en a un, sinon le rectangle arrondi aux couleurs du thème.</summary>
+        void Skin(Image img, Sprite sprite, Color color, float radius)
+        {
+            if (sprite == null) { SetRounded(img, radius); img.color = color; return; }
+            img.sprite = sprite;
+            img.type = sprite.border != Vector4.zero ? Image.Type.Sliced : Image.Type.Simple;
+            img.pixelsPerUnitMultiplier = theme.SpriteScale;
+            img.color = theme.TintSprites ? color : Color.white;
+        }
+
+        static readonly Dictionary<string, Sprite> logos = new Dictionary<string, Sprite>();
+
+        static void ShowLogo(Image avatar, UiText initial, Sprite logo)
+        {
+            if (avatar == null) return;
+            avatar.sprite = logo;
+            avatar.type = Image.Type.Simple;
+            avatar.preserveAspect = true;
+            avatar.color = Color.white;
+            initial.GameObject.SetActive(false);
+        }
+
+        System.Collections.IEnumerator LoadLogo(string url, Image avatar, UiText initial)
+        {
+            if (logos.TryGetValue(url, out var cached)) { ShowLogo(avatar, initial, cached); yield break; }
+            using (var req = UnityEngine.Networking.UnityWebRequest.Get(url))
+            {
+                req.timeout = 15;
+                yield return req.SendWebRequest();
+                if (req.result != UnityEngine.Networking.UnityWebRequest.Result.Success) yield break;
+                var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false) { name = "Inngame Logo" };
+                if (!tex.LoadImage(req.downloadHandler.data, true)) { Destroy(tex); yield break; }
+                tex.filterMode = FilterMode.Bilinear;
+                var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+                logos[url] = sprite;
+                ShowLogo(avatar, initial, sprite);
+            }
         }
 
         static void SetRounded(Image img, float radius)

@@ -352,9 +352,9 @@ namespace InngameSDK.Tests
         public void ServerAppearanceOverridesLocalTheme()
         {
             var dark = InngameTheme.CreateDark();
-            var appearance = InngameJson.ParseObject(@"{""title"":""Wipe Help"",""welcomeTitle"":"""",""dark"":{""accent"":""#22C55E"",""background"":""#000000""},""light"":{""accent"":""#FF0000""}}");
+            var appearance = InngameJson.ParseObject(@"{""title"":""Acme Help"",""welcomeTitle"":"""",""dark"":{""accent"":""#22C55E"",""background"":""#000000""},""light"":{""accent"":""#FF0000""}}");
             var t = dark.WithAppearance(appearance);
-            Assert.AreEqual("Wipe Help", t.Title);
+            Assert.AreEqual("Acme Help", t.Title);
             Assert.AreEqual(dark.WelcomeTitle, t.WelcomeTitle, "empty server text keeps the local one");
             Assert.AreEqual((Color)new Color32(0x22, 0xC5, 0x5E, 255), t.Accent);
             Assert.AreEqual(t.Accent, t.OutgoingBubble);
