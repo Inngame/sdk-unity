@@ -1,0 +1,21 @@
+{
+    "name": "Inngame",
+    "rootNamespace": "InngameSDK",
+    "references": [
+        "Unity.TextMeshPro",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        { "name": "com.unity.textmeshpro", "expression": "3.0.0", "define": "INNGAME_TMP" },
+        { "name": "com.unity.ugui", "expression": "2.0.0", "define": "INNGAME_TMP" },
+        { "name": "com.unity.inputsystem", "expression": "1.0.0", "define": "INNGAME_INPUT_SYSTEM" }
+    ],
+    "noEngineReferences": false
+}

@@ -1,0 +1,14 @@
+{
+    "name": "Inngame.Editor",
+    "rootNamespace": "InngameSDK.Editor",
+    "references": ["Inngame"],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
