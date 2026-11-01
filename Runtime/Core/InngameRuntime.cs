@@ -25,6 +25,9 @@ namespace InngameSDK
         public bool Blocked;
         public bool Online = true;
         public bool HasMore;
+        /// <summary>The studio's workspace is suspended (403 org_suspended): the chat says support is unavailable.</summary>
+        public bool Unavailable => suspension.Unavailable;
+        internal readonly Suspension suspension = new Suspension();
         public bool SessionReady => !string.IsNullOrEmpty(Api.DeviceToken) && sessionOk;
         bool sessionOk;
 
@@ -135,7 +138,7 @@ namespace InngameSDK
         void OnApplicationPause(bool paused)
         {
             if (paused) socket?.Stop();
-            else if (SessionReady) { StartRealtime(); _ = RefreshMessages(); }
+            else if (SessionReady && !Unavailable) { StartRealtime(); _ = RefreshMessages(); }
         }
 
         void OnLog(string msg, string stack, LogType type)
@@ -209,6 +212,7 @@ namespace InngameSDK
         public Task<bool> EnsureSession()
         {
             if (SuppressNetwork) return Task.FromResult(false);
+            if (Unavailable && (sessionTask == null || sessionTask.IsCompleted)) return Task.FromResult(false); // only Recheck() asks again
             if (sessionTask == null || (sessionTask.IsCompleted && !sessionTask.Result)) sessionTask = StartSession();
             return sessionTask;
         }
@@ -220,6 +224,7 @@ namespace InngameSDK
             if (identity != null) body["identity"] = identity;
             var r = await Api.Post("/session", body, 2);
             if (this == null) return false;
+            if (NoteSuspension(r)) return false;
             if (!r.Ok && r.Status == 401 && identity != null && r.ErrorCode != "invalid_app_key")
             {
                 // The identity was refused: keep a working anonymous session and report the error.
@@ -238,6 +243,7 @@ namespace InngameSDK
             }
             if (ReferenceEquals(pendingIdentity, identity)) pendingIdentity = null;
             SetOnline(true);
+            if (suspension.Observe(r, Now)) OnAvailabilityChanged(); // support is back
             var token = r.Json.GetString("token");
             if (!string.IsNullOrEmpty(token) && token != Api.DeviceToken)
             {
@@ -286,8 +292,10 @@ namespace InngameSDK
         /// <summary>Calls the API; on an unknown device token, starts a new session once and retries.</summary>
         async Task<ApiResponse> Call(Func<Task<ApiResponse>> f)
         {
-            if (!sessionOk && !await EnsureSession()) return new ApiResponse { Status = 0, NetworkError = "no session" };
+            if (Unavailable) return Suspension.Refusal(); // no network until a recheck says support is back
+            if (!sessionOk && !await EnsureSession()) return Unavailable ? Suspension.Refusal() : new ApiResponse { Status = 0, NetworkError = "no session" };
             var r = await f();
+            if (NoteSuspension(r)) return r;
             if (r.Status == 401 && r.ErrorCode == "invalid_device_token")
             {
                 Api.DeviceToken = null;
@@ -304,6 +312,14 @@ namespace InngameSDK
 
         public async Task<bool> Identify(Dictionary<string, object> identity)
         {
+            if (Unavailable)
+            {
+                // Kept for the session that runs when support is back.
+                var keep = pendingIdentity != null ? new Dictionary<string, object>(pendingIdentity) : new Dictionary<string, object>();
+                foreach (var kv in identity) keep[kv.Key] = kv.Value;
+                pendingIdentity = keep;
+                return false;
+            }
             if (!sessionOk && (sessionTask == null || !sessionTask.IsCompleted))
             {
                 // Not started yet: merge into the session request (a new object, so a request already in flight applies it afterwards).
@@ -314,6 +330,7 @@ namespace InngameSDK
                 return ok && User != null && (User.Identified || identity.ContainsKey("metadata"));
             }
             var r = await Call(() => Api.Post("/identify", identity, 2));
+            if (Suspension.IsSuspended(r)) { pendingIdentity = identity; return false; }
             if (!r.Ok)
             {
                 Inngame.Log(InngameLogLevel.Error, "Identify failed: " + r);
@@ -554,7 +571,7 @@ namespace InngameSDK
                 {
                     var it = Queue.NextDue(Now);
                     if (it == null) break;
-                    if (!sessionOk) break; // the session loop (Update) retries with backoff and pumps on success
+                    if (!sessionOk || Unavailable) break; // the session loop (Update) retries with backoff and pumps on success
                     Queue.MarkInFlight(it.ClientId);
                     var body = new Dictionary<string, object> { ["body"] = it.Body, ["clientId"] = it.ClientId, ["attachments"] = StripUrls(it.Attachments) };
                     if (it.Context != null) body["context"] = it.Context;
@@ -573,6 +590,15 @@ namespace InngameSDK
                             MergeServer(new List<InngameMessage> { sent }, false);
                         }
                         SaveCache();
+                    }
+                    else if (Suspension.IsSuspended(r))
+                    {
+                        // Support is unavailable: the message waits, untouched, and goes when support is back.
+                        Queue.MarkWaiting(it.ClientId);
+                        if (local != null) local.State = InngameMessageState.Sending;
+                        SaveQueue();
+                        Changed?.Invoke();
+                        break;
                     }
                     else if (r.Transient)
                     {
@@ -633,6 +659,42 @@ namespace InngameSDK
             StatusChanged?.Invoke();
         }
 
+        /// <summary>Returns true (and switches to the unavailable state) when the server says the workspace is suspended.</summary>
+        bool NoteSuspension(ApiResponse r)
+        {
+            if (!Suspension.IsSuspended(r)) return false;
+            SetOnline(true); // the server answered
+            if (suspension.Observe(r, Now)) OnAvailabilityChanged();
+            return true;
+        }
+
+        void OnAvailabilityChanged()
+        {
+            if (Unavailable)
+            {
+                Inngame.Log(InngameLogLevel.Warning, "Support is unavailable (the studio's workspace is suspended); checking again later");
+                socket?.Stop();
+                foreach (var it in Queue.Items) if (it.InFlight) Queue.MarkWaiting(it.ClientId);
+            }
+            else
+            {
+                Inngame.Log(InngameLogLevel.Info, "Support is available again");
+                Queue.WakeUp(Now);
+            }
+            StatusChanged?.Invoke();
+            Changed?.Invoke();
+        }
+
+        /// <summary>Asks the server again whether support is back (a new session; on success the queue is sent).</summary>
+        internal Task<bool> Recheck()
+        {
+            suspension.MarkChecking(Now);
+            if (sessionTask != null && !sessionTask.IsCompleted) return sessionTask;
+            sessionOk = false;
+            sessionTask = StartSession();
+            return sessionTask;
+        }
+
         void SetBlocked(bool b)
         {
             if (Blocked == b) return;
@@ -687,7 +749,7 @@ namespace InngameSDK
 
         void StartRealtime()
         {
-            if (Options.UseWebSocket && RealtimeSocket.Supported && SessionReady && Application.isPlaying) socket.Start();
+            if (Options.UseWebSocket && RealtimeSocket.Supported && SessionReady && !Unavailable && Application.isPlaying) socket.Start();
         }
 
         public bool SocketConnected => socket != null && socket.Connected;
@@ -759,7 +821,7 @@ namespace InngameSDK
         void Update()
         {
             Fps.Tick(Time.unscaledDeltaTime);
-            if (!sessionOk && !SuppressNetwork && Time.realtimeSinceStartup >= nextSessionTry && (sessionTask == null || sessionTask.IsCompleted))
+            if (!sessionOk && !SuppressNetwork && !Unavailable && Time.realtimeSinceStartup >= nextSessionTry && (sessionTask == null || sessionTask.IsCompleted))
             {
                 nextSessionTry = Time.realtimeSinceStartup + 1f;
                 _ = EnsureSession();
@@ -767,12 +829,13 @@ namespace InngameSDK
             if (socket != null) DrainSocket();
 
             float t = Time.realtimeSinceStartup;
-            if (SessionReady && !SocketConnected && t >= nextPoll)
+            if (!SuppressNetwork && suspension.RecheckDue(Now, IsOpen)) _ = Recheck();
+            if (SessionReady && !Unavailable && !SocketConnected && t >= nextPoll)
             {
                 nextPoll = t + (IsOpen ? Options.PollIntervalOpen : Options.PollIntervalClosed);
                 _ = Poll();
             }
-            if (Queue.Count > 0 && t >= nextPump) { nextPump = t + 1f; PumpQueue(); }
+            if (Queue.Count > 0 && !Unavailable && t >= nextPump) { nextPump = t + 1f; PumpQueue(); }
             if (TeamTypingUntil > 0 && t > TeamTypingUntil) { TeamTypingUntil = 0; StatusChanged?.Invoke(); }
 
             HandleInput();
@@ -820,8 +883,12 @@ namespace InngameSDK
             }
             View.Show();
             nextPoll = 0;
-            _ = RefreshMessages();
-            if (Unread > 0) _ = MarkRead();
+            if (Unavailable) { if (!SuppressNetwork && suspension.RecheckOnOpen(Now)) _ = Recheck(); }
+            else
+            {
+                _ = RefreshMessages();
+                if (Unread > 0) _ = MarkRead();
+            }
             Inngame.RaiseOpened();
         }
 
@@ -948,6 +1015,7 @@ namespace InngameSDK
             var body = new Dictionary<string, object> { ["name"] = name, ["opensChat"] = opensChat };
             if (props != null) body["props"] = ContextCollector.Sanitize(props);
             var r = await Call(() => Api.Post("/events", body, 2));
+            if (Suspension.IsSuspended(r)) return false; // support unavailable: said once, not at every event
             if (!r.Ok) { Inngame.Log(InngameLogLevel.Warning, $"Track({name}) failed: {r}"); return false; }
             if (r.Json.GetBool("openChat")) OpenChat();
             return true;

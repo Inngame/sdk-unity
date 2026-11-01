@@ -410,6 +410,88 @@ namespace InngameSDK.Tests
         }
     }
 
+    /// <summary>Workspace suspended by Inngame: every SDK call answers 403 {"error":"org_suspended","message":"…"} (server/src/index.ts).</summary>
+    public class SuspensionTests
+    {
+        static ApiResponse Suspended() => new ApiResponse
+        {
+            Status = 403, Json = InngameJson.ParseObject(@"{""error"":""org_suspended"",""message"":""Support chat is unavailable.""}"),
+        };
+
+        [Test]
+        public void RecognizesTheServerError()
+        {
+            Assert.IsTrue(Suspension.IsSuspended(Suspended()));
+            Assert.IsTrue(Suspension.IsSuspended(Suspension.Refusal()), "the offline refusal looks the same to callers");
+            Assert.IsFalse(Suspension.IsSuspended(new ApiResponse { Status = 403, Json = InngameJson.ParseObject(@"{""error"":""forbidden""}") }));
+            Assert.IsFalse(Suspension.IsSuspended(new ApiResponse { Status = 401, Json = InngameJson.ParseObject(@"{""error"":""org_suspended""}") }));
+            Assert.IsFalse(Suspension.IsSuspended(new ApiResponse { Status = 0, NetworkError = "offline" }));
+            Assert.IsFalse(Suspension.Refusal().Transient, "never retried in a tight loop");
+        }
+
+        [Test]
+        public void SlowRecheckThenBackToNormal()
+        {
+            var s = new Suspension();
+            Assert.IsFalse(s.Unavailable);
+            Assert.IsTrue(s.Observe(Suspended(), 100));
+            Assert.IsTrue(s.Unavailable);
+            Assert.IsFalse(s.Observe(Suspended(), 101), "already unavailable");
+
+            Assert.IsFalse(s.RecheckDue(101 + 300, true), "not every few seconds");
+            Assert.IsFalse(s.RecheckDue(101 + Suspension.RecheckSeconds, false), "only while the chat is open");
+            Assert.IsTrue(s.RecheckDue(101 + Suspension.RecheckSeconds, true));
+            Assert.IsFalse(s.RecheckOnOpen(130), "opening right after a check doesn't ask again");
+            Assert.IsTrue(s.RecheckOnOpen(101 + Suspension.OpenRecheckGapSeconds));
+            s.MarkChecking(1000);
+            Assert.IsFalse(s.RecheckDue(1001, true));
+
+            Assert.IsFalse(s.Observe(new ApiResponse { Status = 0, NetworkError = "offline" }, 1002), "a network error changes nothing");
+            Assert.IsTrue(s.Unavailable);
+            Assert.IsTrue(s.Observe(new ApiResponse { Status = 200 }, 1700), "a successful call: support is back");
+            Assert.IsFalse(s.Unavailable);
+            Assert.IsFalse(s.RecheckDue(1e9, true));
+        }
+
+        [Test]
+        public void QueuedMessagesWaitWithoutUsingAttempts()
+        {
+            var q = new OutgoingQueue();
+            var a = q.Enqueue("help", null, null, 0, 0);
+            var b = q.Enqueue("still there?", null, null, 0, 0);
+            for (int i = 0; i < OutgoingQueue.MaxAutoAttempts * 3; i++)
+            {
+                var due = q.NextDue(0);
+                Assert.AreSame(a, due, "oldest first, every time");
+                q.MarkInFlight(due.ClientId);
+                q.MarkWaiting(due.ClientId);
+            }
+            Assert.IsFalse(a.Failed, "not given up: no 'Not sent' for a suspended workspace");
+            Assert.AreEqual(0, a.Attempts);
+            Assert.AreEqual(2, q.Count);
+            var q2 = new OutgoingQueue();
+            q2.Load(q.Serialize(), 0);
+            Assert.AreEqual(2, q2.Count, "kept across launches");
+            Assert.IsFalse(q2.Items[0].Failed);
+            q.MarkInFlight(a.ClientId); q.MarkSent(a.ClientId);
+            Assert.AreSame(b, q.NextDue(0), "sent in order once support is back");
+        }
+
+        [Test]
+        public void UnavailableTextInEveryLanguage()
+        {
+            var en = UiStrings.Get(UiStrings.K.Unavailable, "en");
+            Assert.AreEqual("Support is unavailable right now. Please try again later.", en);
+            foreach (var l in UiStrings.Languages)
+            {
+                var t = UiStrings.Get(UiStrings.K.Unavailable, l);
+                Assert.IsFalse(string.IsNullOrWhiteSpace(t), l);
+                if (l != "en") Assert.AreNotEqual(en, t, l + " is translated");
+            }
+            Assert.AreEqual("Le support est indisponible pour le moment. Réessayez plus tard.", UiStrings.Get(UiStrings.K.Unavailable, "fr-FR"));
+        }
+    }
+
     public class CardUrlTests
     {
         [Test]

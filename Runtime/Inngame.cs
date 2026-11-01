@@ -15,7 +15,7 @@ namespace InngameSDK
     /// </summary>
     public static class Inngame
     {
-        public const string SdkVersion = "0.2.0";
+        public const string SdkVersion = "0.2.1";
         public const string DefaultBaseUrl = "https://inngame.meffysto.workers.dev";
 
         static InngameRuntime rt;
@@ -144,6 +144,14 @@ namespace InngameSDK
         public static void CloseChat() => rt?.CloseChat();
         public static bool IsChatOpen => rt != null && rt.IsOpen;
         public static int UnreadCount => rt?.Unread ?? 0;
+
+        /// <summary>
+        /// True while the studio's support is unavailable (its Inngame workspace is suspended). The chat then shows
+        /// "Support is unavailable right now" in the player's language, hides the composer and keeps unsent messages;
+        /// the SDK asks again every 10 minutes while the chat is open and when it opens, and comes back on its own.
+        /// Meanwhile Identify, Track, Logout and DeleteData return false.
+        /// </summary>
+        public static bool IsUnavailable => rt != null && rt.Unavailable;
 
         /// <summary>Settings from the inbox (photos, translation, availability…), updated at each session. Null before Configure.</summary>
         public static InngameRemoteConfig Config => rt?.Config;

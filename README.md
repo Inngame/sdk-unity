@@ -20,7 +20,7 @@ In-game customer support: a chat that looks like your game made it. Players writ
 Package Manager › **+** › *Add package from git URL…* (or *from disk* and pick `package.json`), or in `Packages/manifest.json`:
 
 ```json
-"gg.inngame.sdk": "https://github.com/inngame/sdk-unity.git#0.1.0"
+"gg.inngame.sdk": "https://github.com/inngame/sdk-unity.git#0.2.1"
 ```
 
 ## Quick start
@@ -55,6 +55,7 @@ void Start()
 | `DeleteData()` | Right to erasure: deletes the player, conversations and photos, then local data. |
 | `OpenChat()` / `CloseChat()` / `IsChatOpen` / `ChatOpened` / `ChatClosed` | Chat window. |
 | `UnreadCount` / `UnreadChanged(int)` / `MessageReceived(msg)` | Badge, in-game toasts. |
+| `IsUnavailable` | `true` while your support is unavailable (your Inngame workspace is suspended). See *Networking & offline*. |
 | `Track(name, props, opensChat)` | Game events for automations. If an automation answers `openChat`, the chat opens. |
 | `SetContext(key, value)` / `ContextProvider` / `CurrentContext()` | Custom context (player level, save slot…). |
 | `CaptureScreenshot(openChat)` / `AttachImage(bytes)` | Screenshot of the game **without** the chat, attached to the next message. |
@@ -213,6 +214,7 @@ The team or the AI can send interactive cards. The SDK renders them as buttons a
 - Outgoing messages go through a persistent queue: each keeps its `clientId` across retries, so the server never stores a message twice. States: *Sending…*, sent ✓, *Not sent · Tap to retry* (after 5 automatic attempts or a refusal).
 - Real time via `System.Net.WebSockets.ClientWebSocket` (Standalone, iOS, Android, IL2CPP) with automatic reconnection and a ping every 25 s. When the socket is down (or on WebGL), the SDK polls `unread` every 15 s (4 s while the chat is open).
 - The last 50 messages are cached for offline display.
+- Support unavailable (the studio's workspace is suspended, every call answers `403 org_suspended`): the chat shows "Support is unavailable right now. Please try again later." in the player's language, without the composer. Unsent messages stay in the queue (not marked *Not sent*), the socket and polling stop, and the SDK asks again every 10 minutes while the chat is open and when it opens. When a session works again, the chat comes back and the queue is sent. `Inngame.IsUnavailable` reads the state; `Identify`, `Track`, `Logout` and `DeleteData` return `false` meanwhile.
 - The device token, cache and queue are stored in `PlayerPrefs`, namespaced per app key. Supply your own `ITokenStore` (e.g. encrypted file, platform save system) via `InngameOptions.TokenStore`.
 
 ## Tests

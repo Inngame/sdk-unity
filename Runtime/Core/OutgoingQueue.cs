@@ -80,6 +80,18 @@ namespace InngameSDK
             it.Failed = true;
         }
 
+        /// <summary>
+        /// Not sent because support is unavailable (workspace suspended): the message is fine, so it keeps its place,
+        /// doesn't use up an attempt and goes as soon as support is back (<see cref="WakeUp"/>).
+        /// </summary>
+        public void MarkWaiting(string clientId)
+        {
+            var it = Find(clientId);
+            if (it == null) return;
+            if (it.InFlight && it.Attempts > 0) it.Attempts--;
+            it.InFlight = false;
+        }
+
         /// <summary>Player tapped "Retry": same clientId, fresh attempt counter.</summary>
         public bool Retry(string clientId, double now)
         {

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1] - 2026-11-01
+
+### Fixed
+- Suspended workspace (`403 org_suspended` on every SDK call): the chat now shows "Support is unavailable right now. Please try again later." (25 languages) and hides the composer, instead of an empty chat, a stuck "Sending…" or dropped messages. Unsent messages stay queued without using up their retries; the socket and polling stop and the SDK asks again every 10 minutes while the chat is open and when it opens. When a session works again the chat returns to normal and the queue is sent.
+
+### Added
+- `Inngame.IsUnavailable` (read-only). `Identify` keeps the identity for the next session while support is unavailable; `Track` stops logging a warning for each event.
+
 ## [0.2.0] - 2026-11-01
 
 ### Added

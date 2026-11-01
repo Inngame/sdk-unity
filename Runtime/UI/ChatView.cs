@@ -27,7 +27,7 @@ namespace InngameSDK
         Image backdrop, fullBg, panelBg;
         UiText typingText, bannerText, subtitle, announcementText;
         GameObject announcement;
-        GameObject banner, empty, typingRow, attachRow, composerRow, blockedRow, newPill, viewer;
+        GameObject banner, empty, unavailable, typingRow, attachRow, composerRow, blockedRow, newPill, viewer;
         Button closeBtn, sendBtn, shotBtn, photoBtn;
         LayoutElement inputPillLayout;
         UiInput input;
@@ -116,9 +116,12 @@ namespace InngameSDK
         Selectable DefaultSelection()
         {
             if (Application.isMobilePlatform) return null; // don't pop the keyboard on phones
-            if (rt.Blocked) return closeBtn;
+            if (NoComposer) return closeBtn;
             return input?.Selectable;
         }
+
+        /// <summary>Blocked player or support unavailable: no composer.</summary>
+        bool NoComposer => rt.Blocked || rt.Unavailable;
 
         void Select(Selectable s)
         {
@@ -363,6 +366,19 @@ namespace InngameSDK
             wm.Text = !string.IsNullOrWhiteSpace(theme.WelcomeMessage) ? theme.WelcomeMessage : UiStrings.Get(UiStrings.K.WelcomeMessage, lang);
             empty = e.gameObject;
 
+            // Support unavailable (workspace suspended): one centered line instead of the conversation.
+            var u = NewRect(scrollArea, "Unavailable");
+            u.anchorMin = new Vector2(0, 0.5f); u.anchorMax = new Vector2(1, 0.5f); u.pivot = new Vector2(0.5f, 0.5f);
+            u.sizeDelta = new Vector2(-48, 0);
+            var uv = u.gameObject.AddComponent<VerticalLayoutGroup>();
+            uv.childAlignment = TextAnchor.MiddleCenter;
+            uv.childControlWidth = true; uv.childControlHeight = true; uv.childForceExpandHeight = false;
+            u.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var ut = UiText.Create(u, "Message", style, FontSize, theme.MutedText, TextAnchor.MiddleCenter);
+            ut.Text = UiStrings.Get(UiStrings.K.Unavailable, lang);
+            unavailable = u.gameObject;
+            unavailable.SetActive(false);
+
             // "New messages" pill
             var pill = NewRect(scrollArea, "NewMessages");
             pill.anchorMin = pill.anchorMax = new Vector2(0.5f, 0); pill.pivot = new Vector2(0.5f, 0);
@@ -573,7 +589,7 @@ namespace InngameSDK
 #if ENABLE_LEGACY_INPUT_MANAGER
             try { if (Input.GetMouseButtonDown(0) || Input.touchCount > 0) UiFocus.NavigationMode = false; } catch (InvalidOperationException) { }
 #endif
-            if (InputCompat.FocusComposerPressed() && input != null && !rt.Blocked) Select(input.Selectable);
+            if (InputCompat.FocusComposerPressed() && input != null && !NoComposer) Select(input.Selectable);
 
             if (dirty) { dirty = false; Rebuild(false); }
             if (statusDirty) { statusDirty = false; RefreshStatus(); }
@@ -632,7 +648,7 @@ namespace InngameSDK
         {
             rt.SendTyping();
             UpdateComposerHeight();
-            sendBtn.interactable = !rt.Blocked && (v.Trim().Length > 0 || rt.PendingAttachments.Count > 0);
+            sendBtn.interactable = !NoComposer && (v.Trim().Length > 0 || rt.PendingAttachments.Count > 0);
         }
 
         void UpdateComposerHeight()
@@ -656,7 +672,7 @@ namespace InngameSDK
 
         void Send(bool fromEnter)
         {
-            if (rt.Blocked) return;
+            if (NoComposer) return;
             var text = input.Text;
             if (string.IsNullOrWhiteSpace(text) && rt.PendingAttachments.Count == 0) return;
             rt.SendText(text);
@@ -677,17 +693,22 @@ namespace InngameSDK
             var avail = AvailabilityText(rt.Config.Availability, lang, DateTime.Now);
             subtitle.GameObject.SetActive(!string.IsNullOrEmpty(avail));
             if (!string.IsNullOrEmpty(avail)) subtitle.Text = avail;
-            bool offline = !rt.Online;
-            banner.SetActive(offline || rt.Uploading);
+            bool offline = !rt.Online && !rt.Unavailable;
+            banner.SetActive(offline || (rt.Uploading && !rt.Unavailable));
             bannerText.Text = offline ? UiStrings.Get(UiStrings.K.Offline, lang) : UiStrings.Get(UiStrings.K.Uploading, lang);
             banner.GetComponent<Image>().color = offline ? theme.Warning : theme.Header;
             bannerText.Color = offline ? InngameTheme.ReadableOn(theme.Warning) : theme.MutedText;
-            composerRow.SetActive(!rt.Blocked);
-            blockedRow.SetActive(rt.Blocked);
+            composerRow.SetActive(!NoComposer);
+            blockedRow.SetActive(rt.Blocked && !rt.Unavailable);
+            unavailable.SetActive(rt.Unavailable);
+            viewport.gameObject.SetActive(!rt.Unavailable);
+            empty.SetActive(!rt.Unavailable && rt.Messages.Count == 0);
+            typingRow.SetActive(typingRow.activeSelf && !rt.Unavailable);
+            if (rt.Unavailable) { newPill.SetActive(false); attachRow.SetActive(false); }
             bool photos = rt.Config.PhotosEnabled;
             shotBtn.gameObject.SetActive(photos);
             if (photoBtn != null) photoBtn.gameObject.SetActive(photos);
-            sendBtn.interactable = !rt.Blocked && (input.Text.Trim().Length > 0 || rt.PendingAttachments.Count > 0);
+            sendBtn.interactable = !NoComposer && (input.Text.Trim().Length > 0 || rt.PendingAttachments.Count > 0);
             BuildNavigation();
         }
 
@@ -697,7 +718,7 @@ namespace InngameSDK
         {
             var sb = new System.Text.StringBuilder();
             foreach (var m in rt.Messages) sb.Append(m.Id ?? m.ClientId).Append(m.State).Append(m.ShowOriginal).Append(m.Card?.LastAction).Append('|');
-            sb.Append(rt.PendingAttachments.Count).Append(rt.Blocked).Append(lastSize);
+            sb.Append(rt.PendingAttachments.Count).Append(rt.Blocked).Append(rt.Unavailable).Append(lastSize);
             return sb.ToString();
         }
 
@@ -715,7 +736,7 @@ namespace InngameSDK
             listFocusables.Clear();
 
             var msgs = rt.Messages;
-            empty.SetActive(msgs.Count == 0);
+            empty.SetActive(msgs.Count == 0 && !rt.Unavailable);
             InngameMessage prev = null;
             float maxW = ListWidth * 0.8f;
             foreach (var m in msgs)
@@ -733,7 +754,7 @@ namespace InngameSDK
             bool newIncoming = msgs.Count > prevCount && msgs.Count > 0 && !msgs[msgs.Count - 1].IsMine;
             bool newMine = msgs.Count > prevCount && msgs.Count > 0 && msgs[msgs.Count - 1].IsMine;
             if (force || atBottom || newMine) scrollToBottom = true;
-            else if (newIncoming) newPill.SetActive(true);
+            else if (newIncoming && !rt.Unavailable) newPill.SetActive(true);
         }
 
         void DaySeparator(DateTime day)
@@ -988,7 +1009,7 @@ namespace InngameSDK
         {
             for (int i = attachRow.transform.childCount - 1; i >= 0; i--) Destroy(attachRow.transform.GetChild(i).gameObject);
             var list = rt.PendingAttachments;
-            attachRow.SetActive(list.Count > 0);
+            attachRow.SetActive(list.Count > 0 && !rt.Unavailable);
             for (int i = 0; i < list.Count; i++)
             {
                 int index = i;
@@ -1025,7 +1046,7 @@ namespace InngameSDK
         {
             if (closeBtn == null) return;
             var composer = new List<Selectable>();
-            if (!rt.Blocked)
+            if (!NoComposer)
             {
                 if (shotBtn.gameObject.activeSelf) composer.Add(shotBtn);
                 if (photoBtn != null && photoBtn.gameObject.activeSelf) composer.Add(photoBtn);
@@ -1033,9 +1054,10 @@ namespace InngameSDK
                 composer.Add(sendBtn);
             }
             listFocusables.RemoveAll(s => s == null);
+            if (rt.Unavailable) listFocusables.Clear(); // the conversation is hidden: only the close button is reachable
             Selectable firstList = listFocusables.Count > 0 ? listFocusables[0] : null;
             Selectable lastList = listFocusables.Count > 0 ? listFocusables[listFocusables.Count - 1] : null;
-            Selectable composerMain = rt.Blocked ? null : input.Selectable;
+            Selectable composerMain = NoComposer ? null : input.Selectable;
 
             SetNav(closeBtn, up: null, down: firstList ?? composerMain, left: null, right: null);
             for (int i = 0; i < listFocusables.Count; i++)
