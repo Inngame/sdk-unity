@@ -20,7 +20,7 @@ In-game customer support: a chat that looks like your game made it. Players writ
 Package Manager › **+** › *Add package from git URL…* (or *from disk* and pick `package.json`), or in `Packages/manifest.json`:
 
 ```json
-"gg.inngame.sdk": "https://github.com/inngame/sdk-unity.git#0.2.1"
+"gg.inngame.sdk": "https://github.com/inngame/sdk-unity.git#0.2.2"
 ```
 
 ## Quick start

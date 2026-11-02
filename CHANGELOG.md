@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.2] - 2026-11-02
+
+### Changed
+- Default server address is now `https://app.inngame.app` (`Inngame.DefaultBaseUrl`). The previous address keeps working, so 0.2.1 and earlier need no change.
+
+### Fixed
+- Cards sent with the server's default English label ("Rate the game", "Request a refund") now show the SDK's translated text in the player's language (25 languages). Labels written by the team are shown as they are. The server flags these cards with `defaultLabel: true`; `InngameCard.UsesDefaultLabel` and `InngameCard.CustomLabel` expose it.
+- Refund cards get their own translated label ("Request a refund") instead of "Open".
+
 ## [0.2.1] - 2026-11-01
 
 ### Fixed

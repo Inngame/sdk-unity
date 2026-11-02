@@ -69,6 +69,23 @@ namespace InngameSDK.Tests
         }
 
         [Test]
+        public void ServerDefaultCardLabelsAreTranslated()
+        {
+            InngameCard C(string json) => InngameCard.FromJson(InngameJson.ParseObject(json));
+            // Apple refund sheet sent by the server with its English default, flagged (server since SDK 0.2.2) or not (stored before).
+            var refund = C("{\"kind\":\"refund\",\"label\":\"Request a refund\",\"defaultLabel\":true,\"transactionId\":\"2000000123456789\"}");
+            Assert.IsTrue(refund.UsesDefaultLabel);
+            Assert.IsNull(refund.CustomLabel);
+            Assert.IsNull(C("{\"kind\":\"refund\",\"label\":\"Request a refund\"}").CustomLabel);
+            Assert.IsNull(C("{\"kind\":\"review\",\"label\":\"Rate the game\"}").CustomLabel);
+            Assert.AreEqual("Demander un remboursement", UiStrings.Get(UiStrings.K.Refund, "fr"));
+            // The team's own label stays; the same text on another kind of card is not a default.
+            Assert.AreEqual("Rate us", C("{\"kind\":\"review\",\"label\":\"Rate us\"}").CustomLabel);
+            Assert.AreEqual("Rate the game", C("{\"kind\":\"link\",\"label\":\"Rate the game\"}").CustomLabel);
+            Assert.IsNull(C("{\"kind\":\"review\"}").CustomLabel);
+        }
+
+        [Test]
         public void ParsesAvailabilityAndFormatsIt()
         {
             var c = InngameRemoteConfig.FromJson(InngameJson.ParseObject("{\"availability\":{\"online\":true,\"replyTime\":\"hours\",\"nextOpenAt\":null}}"));

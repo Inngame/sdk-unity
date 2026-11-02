@@ -25,7 +25,7 @@ namespace InngameSDK.Editor
         }
 
         [MenuItem("Tools/Inngame/Documentation", priority = 20)]
-        static void Docs() => Application.OpenURL("https://inngame.gg/docs/unity");
+        static void Docs() => Application.OpenURL("https://inngame.app/docs/unity");
 
         public static InngameSettings LoadOrCreate()
         {

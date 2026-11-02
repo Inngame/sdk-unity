@@ -1,12 +1,12 @@
 {
   "name": "gg.inngame.sdk",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "displayName": "Inngame",
   "description": "In-game customer support for Unity: a native-looking chat (uGUI, gamepad-ready) connected to your Inngame inbox, with automatic translation, game context, screenshots, cards and real-time replies.",
   "unity": "2022.3",
-  "documentationUrl": "https://inngame.gg/docs/unity",
+  "documentationUrl": "https://inngame.app/docs/unity",
   "license": "SEE LICENSE IN LICENSE.md",
-  "author": { "name": "Inngame", "url": "https://inngame.gg" },
+  "author": { "name": "Inngame", "url": "https://inngame.app" },
   "keywords": ["support", "chat", "helpdesk", "customer support", "in-game", "inngame"],
   "dependencies": {
     "com.unity.ugui": "1.0.0",

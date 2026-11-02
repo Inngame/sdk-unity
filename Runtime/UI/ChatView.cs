@@ -967,11 +967,12 @@ namespace InngameSDK
         {
             var c = m.Card;
             bool claimed = c.Kind == "item" && c.LastAction == "claimed";
-            string label = c.Label;
-            if (string.IsNullOrEmpty(label))
+            string label = c.CustomLabel;
+            if (label == null)
                 label = c.Kind switch
                 {
                     "review" => UiStrings.Get(UiStrings.K.Review, lang),
+                    "refund" => UiStrings.Get(UiStrings.K.Refund, lang),
                     "item" => UiStrings.Get(UiStrings.K.Claim, lang) + (c.Item != null ? $" · {c.Item.Name}{(c.Item.Quantity > 1 ? " ×" + c.Item.Quantity : "")}" : ""),
                     _ => UiStrings.Get(UiStrings.K.Open, lang),
                 };

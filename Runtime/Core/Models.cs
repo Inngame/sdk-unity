@@ -62,6 +62,14 @@ namespace InngameSDK
         public int? Rating;
         /// <summary>The full card object as sent by the server (unknown keys included).</summary>
         public Dictionary<string, object> Raw;
+        /// <summary>True when <see cref="Label"/> is the server's own English default ("defaultLabel": true, or a known default
+        /// from before that flag): the chat then shows its translated text instead.</summary>
+        public bool UsesDefaultLabel;
+
+        internal static string ServerDefaultLabel(string kind) => kind == "review" ? "Rate the game" : kind == "refund" ? "Request a refund" : null;
+
+        /// <summary>The team's label, or null when the chat should use its own translated text for this kind of card.</summary>
+        public string CustomLabel => string.IsNullOrEmpty(Label) || UsesDefaultLabel ? null : Label;
 
         internal static InngameCard FromJson(Dictionary<string, object> d)
         {
@@ -77,6 +85,7 @@ namespace InngameSDK
                 LastAction = d.GetString("lastAction"),
                 Raw = d,
             };
+            c.UsesDefaultLabel = d.GetBool("defaultLabel", false) || (c.Label != null && ServerDefaultLabel(c.Kind) == c.Label);
             var rating = d.GetLong("rating", 0);
             if (rating >= 1 && rating <= 5) c.Rating = (int)rating;
             var it = d.GetDict("item");

@@ -15,8 +15,8 @@ namespace InngameSDK
     /// </summary>
     public static class Inngame
     {
-        public const string SdkVersion = "0.2.1";
-        public const string DefaultBaseUrl = "https://inngame.meffysto.workers.dev";
+        public const string SdkVersion = "0.2.2";
+        public const string DefaultBaseUrl = "https://app.inngame.app";
 
         static InngameRuntime rt;
         internal static InngameRuntime Runtime => rt;
