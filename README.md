@@ -20,7 +20,7 @@ In-game customer support: a chat that looks like your game made it. Players writ
 Package Manager › **+** › *Add package from git URL…* (or *from disk* and pick `package.json`), or in `Packages/manifest.json`:
 
 ```json
-"gg.inngame.sdk": "https://github.com/inngame/sdk-unity.git#0.2.2"
+"gg.inngame.sdk": "https://github.com/inngame/sdk-unity.git#0.2.3"
 ```
 
 ## Quick start
@@ -197,11 +197,12 @@ Upload your APNs key / FCM credentials in the dashboard. `SetPushToken(null, …
 
 ## Cards
 
-The team or the AI can send interactive cards. The SDK renders them as buttons and reports the tap to the team (`tapped`, `failed`, `claimed`).
+The team or the AI can send interactive cards. The SDK renders them as buttons and reports the tap to the team (`tapped`, `failed`, `claimed`, `dismissed`).
 
 | Kind | What happens |
 |---|---|
-| `review` | Opens the store review page: iOS `itms-apps://…?action=write-review` (needs `appStoreId` in the card or `InngameOptions.AppStoreId`), Android `market://details?id=<package>`, desktop the Steam review page (`steamAppId` / `SteamAppId`); otherwise the card's `url`. |
+| `review` | Opens the store's own review page (never an in-game rating prompt): iOS `itms-apps://…?action=write-review`, Android `market://details?id=<package>`, desktop the Steam review page; otherwise the card's `url`. Ids come from the card, then `InngameOptions.AppStoreId` / `PlayStorePackage` / `SteamAppId`, then the dashboard's Reviews settings. |
+| `refund` | iOS: Apple's own refund sheet for the card's transaction (StoreKit 2 `Transaction.beginRefundRequest`, iOS 15+, `Plugins/iOS/InngameRefund.swift`); reports `claimed`, `dismissed` or `failed`. Elsewhere and on older iOS: Apple's Report a Problem page. |
 | `link` | `Application.OpenURL(card.url)`. |
 | `screen` | Closes the chat and calls the handler registered with `Inngame.RegisterScreen(card.screen, value => …)`. |
 | `item` | Shows **Claim**; calls `Inngame.OnItemGranted(item)` (id, name, quantity). **Grant the item server-side** (the claim is reported to the team; never trust the client alone). |

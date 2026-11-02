@@ -197,6 +197,8 @@ namespace InngameSDK
         public bool Faq;
         /// <summary>Whether the team is around right now and how fast it usually replies (office hours set in the inbox).</summary>
         public InngameAvailability Availability = new InngameAvailability();
+        /// <summary>Store ids from the dashboard (Settings → Apps → Reviews), used by review cards when neither the card nor your options carry them.</summary>
+        public string AppStoreId, PlayPackage, SteamAppId;
 
         internal static InngameRemoteConfig FromJson(Dictionary<string, object> d)
         {
@@ -207,6 +209,8 @@ namespace InngameSDK
             c.VerifiedOnly = d.GetBool("verifiedOnly");
             c.Translation = d.GetBool("translation", true);
             c.Faq = d.GetBool("faq");
+            var rv = d.GetDict("reviews");
+            if (rv != null) { c.AppStoreId = rv.GetString("appStoreId"); c.PlayPackage = rv.GetString("playPackage"); c.SteamAppId = rv.GetString("steamAppId"); }
             var av = d.GetDict("availability");
             if (av != null)
                 c.Availability = new InngameAvailability { Online = av.GetBool("online", true), ReplyTime = av.GetString("replyTime"), NextOpenAt = av.GetLong("nextOpenAt", 0) };

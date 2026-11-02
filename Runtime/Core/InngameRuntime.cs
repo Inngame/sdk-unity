@@ -1046,12 +1046,17 @@ namespace InngameSDK
             {
                 case "review":
                 {
-                    var url = CardUrls.ReviewUrl(c, Options, Application.platform, Application.identifier);
+                    // The store's "write a review" page (never an in-app prompt in response to a button).
+                    var url = CardUrls.ReviewUrl(c, Options, Application.platform, Application.identifier, Config);
                     if (SafeUrl(url)) Application.OpenURL(url); else action = "failed";
                     break;
                 }
-                case "link":
                 case "refund":
+                    // iOS: Apple's own refund sheet, result reported when the player closes it. Elsewhere: Apple's "Report a Problem" page.
+                    if (NativeRefund.Begin(c.Raw.GetString("transactionId"), m.Id)) return;
+                    Application.OpenURL(SafeUrl(c.Url) ? c.Url : NativeRefund.ReportProblemUrl);
+                    break;
+                case "link":
                     if (SafeUrl(c.Url)) Application.OpenURL(c.Url); else action = "failed";
                     break;
                 case "screen":
@@ -1083,10 +1088,24 @@ namespace InngameSDK
                     break;
             }
             if (action == null) return;
+            ReportCardAction(m, action);
+        }
+
+        /// <summary>Shows the card's new state and tells the team (tapped, failed, claimed, dismissed).</summary>
+        internal void ReportCardAction(InngameMessage m, string action)
+        {
+            var c = m?.Card;
+            if (c == null || m.Id == null) return;
             c.LastAction = action;
             if (c.Raw != null) c.Raw["lastAction"] = action;
             Changed?.Invoke();
             _ = Call(() => Api.Post($"/cards/{Uri.EscapeDataString(m.Id)}/action", new Dictionary<string, object> { ["action"] = action }, 2));
+        }
+
+        internal void ReportCardAction(string messageId, string action)
+        {
+            if (string.IsNullOrEmpty(messageId)) return;
+            ReportCardAction(Messages.Find(x => x.Id == messageId), action);
         }
 
         /// <summary>Sends the player's satisfaction score (1 to 5). Shown as rated right away; the server keeps the first score only.</summary>
@@ -1142,11 +1161,12 @@ namespace InngameSDK
 
     internal static class CardUrls
     {
-        public static string ReviewUrl(InngameCard c, InngameOptions o, RuntimePlatform platform, string bundleId)
+        /// <summary>Store ids: the card's, then your options, then the dashboard's (Settings → Apps → Reviews).</summary>
+        public static string ReviewUrl(InngameCard c, InngameOptions o, RuntimePlatform platform, string bundleId, InngameRemoteConfig config = null)
         {
-            string appStoreId = c.Raw.GetString("appStoreId") ?? o?.AppStoreId;
-            string playPackage = c.Raw.GetString("playPackage") ?? o?.PlayStorePackage ?? bundleId;
-            string steamAppId = c.Raw.GetString("steamAppId") ?? o?.SteamAppId;
+            string appStoreId = c.Raw.GetString("appStoreId") ?? NullIfEmpty(o?.AppStoreId) ?? config?.AppStoreId;
+            string playPackage = c.Raw.GetString("playPackage") ?? NullIfEmpty(o?.PlayStorePackage) ?? config?.PlayPackage ?? bundleId;
+            string steamAppId = c.Raw.GetString("steamAppId") ?? NullIfEmpty(o?.SteamAppId) ?? config?.SteamAppId;
             switch (platform)
             {
                 case RuntimePlatform.IPhonePlayer:
@@ -1163,5 +1183,7 @@ namespace InngameSDK
             }
             return string.IsNullOrEmpty(c.Url) ? null : c.Url;
         }
+
+        static string NullIfEmpty(string s) => string.IsNullOrEmpty(s) ? null : s;
     }
 }

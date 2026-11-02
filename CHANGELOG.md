@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.3] - 2026-11-02
+
+### Fixed
+- Refund cards (Apple refunds) did nothing: the server sends a transaction id, not a link. On iOS the card now opens Apple's own refund sheet (StoreKit 2 `Transaction.beginRefundRequest`, iOS 15+, through `Plugins/iOS/InngameRefund.swift`) and reports `claimed`, `dismissed` or `failed` to the team. Elsewhere, and on older iOS, it opens Apple's Report a Problem page (https://reportaproblem.apple.com/).
+- Review cards without store ids (like the one the server sends after a resolved conversation) now fall back to the ids from the dashboard (Settings → Apps → Reviews, `InngameRemoteConfig.AppStoreId` / `PlayPackage` / `SteamAppId`) after your options. They still open the store's own review page (App Store "Write a Review", Play Store listing, Steam review page), never an in-app rating prompt.
+
 ## [0.2.2] - 2026-11-02
 
 ### Changed

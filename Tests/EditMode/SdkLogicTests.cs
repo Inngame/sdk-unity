@@ -411,6 +411,30 @@ namespace InngameSDK.Tests
         }
 
         [Test]
+        public void ReviewUrlFallsBackToDashboardIds()
+        {
+            // The card sent when a conversation is resolved carries no ids: the dashboard's (session config) are used.
+            var c = Card(@"{""kind"":""review"",""label"":""Rate the game"",""defaultLabel"":true,""source"":""resolved""}");
+            var cfg = InngameRemoteConfig.FromJson(InngameJson.ParseObject(@"{""reviews"":{""appStoreId"":""6820303869"",""playPackage"":""com.studio.game"",""steamAppId"":null}}"));
+            Assert.AreEqual("6820303869", cfg.AppStoreId);
+            Assert.AreEqual("itms-apps://itunes.apple.com/app/id6820303869?action=write-review", CardUrls.ReviewUrl(c, new InngameOptions(), RuntimePlatform.IPhonePlayer, "x", cfg));
+            Assert.AreEqual("market://details?id=com.studio.game", CardUrls.ReviewUrl(c, new InngameOptions(), RuntimePlatform.Android, "bundle.id", cfg));
+            StringAssert.Contains("id1", CardUrls.ReviewUrl(c, new InngameOptions { AppStoreId = "1" }, RuntimePlatform.IPhonePlayer, "x", cfg), "options win over the dashboard");
+        }
+
+        [Test]
+        public void RefundCardWithoutNativeSheetFallsBack()
+        {
+            // In the editor (and off iOS) there is no StoreKit sheet: TapCard opens Apple's "Report a Problem" page.
+            Assert.IsFalse(NativeRefund.Begin("2000000123456789", "msg_1"));
+            Assert.IsFalse(NativeRefund.Begin(null, "msg_1"));
+            Assert.AreEqual("https://reportaproblem.apple.com/", NativeRefund.ReportProblemUrl);
+            Assert.AreEqual("claimed", NativeRefund.ActionFor(1));
+            Assert.AreEqual("dismissed", NativeRefund.ActionFor(2));
+            Assert.AreEqual("failed", NativeRefund.ActionFor(0));
+        }
+
+        [Test]
         public void EveryLanguageHasEveryString()
         {
             int n = System.Enum.GetValues(typeof(UiStrings.K)).Length;
